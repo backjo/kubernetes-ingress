@@ -408,6 +408,8 @@ func (vsc *virtualServerConfigurator) GenerateVirtualServerConfig(vsEx *VirtualS
 				vsLocSnippets,
 				vsc.enableSnippets,
 				len(returnLocations),
+				isVSR,
+				"", "",
 			)
 			addPoliciesCfgToLocations(routePoliciesCfg, cfg.Locations)
 
@@ -419,7 +421,7 @@ func (vsc *virtualServerConfigurator) GenerateVirtualServerConfig(vsEx *VirtualS
 			matchesRoutes++
 		} else if len(r.Splits) > 0 {
 			cfg := generateDefaultSplitsConfig(r, virtualServerUpstreamNamer, crUpstreams, variableNamer, len(splitClients),
-				vsc.cfgParams, r.ErrorPages, errorPageIndex, r.Path, vsLocSnippets, vsc.enableSnippets, len(returnLocations))
+				vsc.cfgParams, r.ErrorPages, errorPageIndex, r.Path, vsLocSnippets, vsc.enableSnippets, len(returnLocations), isVSR, "", "")
 			addPoliciesCfgToLocations(routePoliciesCfg, cfg.Locations)
 
 			splitClients = append(splitClients, cfg.SplitClients...)
@@ -491,7 +493,6 @@ func (vsc *virtualServerConfigurator) GenerateVirtualServerConfig(vsEx *VirtualS
 			}
 			routePoliciesCfg := vsc.generatePolicies(ownerDetails, policyRefs, vsEx.Policies, context, policyOpts)
 			limitReqZones = append(limitReqZones, routePoliciesCfg.LimitReqZones...)
-
 			if len(r.Matches) > 0 {
 				cfg := generateMatchesConfig(
 					r,
@@ -506,6 +507,9 @@ func (vsc *virtualServerConfigurator) GenerateVirtualServerConfig(vsEx *VirtualS
 					locSnippets,
 					vsc.enableSnippets,
 					len(returnLocations),
+					isVSR,
+					vsr.Name,
+					vsr.Namespace,
 				)
 				addPoliciesCfgToLocations(routePoliciesCfg, cfg.Locations)
 
@@ -517,7 +521,7 @@ func (vsc *virtualServerConfigurator) GenerateVirtualServerConfig(vsEx *VirtualS
 				matchesRoutes++
 			} else if len(r.Splits) > 0 {
 				cfg := generateDefaultSplitsConfig(r, upstreamNamer, crUpstreams, variableNamer, len(splitClients), vsc.cfgParams,
-					errorPages, errorPageIndex, r.Path, locSnippets, vsc.enableSnippets, len(returnLocations))
+					errorPages, errorPageIndex, r.Path, locSnippets, vsc.enableSnippets, len(returnLocations), isVSR, vsr.Name, vsr.Namespace)
 				addPoliciesCfgToLocations(routePoliciesCfg, cfg.Locations)
 
 				splitClients = append(splitClients, cfg.SplitClients...)
@@ -1481,12 +1485,12 @@ func generateSplits(
 	locSnippets string,
 	enableSnippets bool,
 	retLocIndex int,
+	isVSR bool,
+	vsrName string,
+	vsrNamespace string,
 ) (version2.SplitClient, []version2.Location, []version2.ReturnLocation) {
 
 	var distributions []version2.Distribution
-	isVSR := false
-	vsrName := ""
-	vsrNamespace := ""
 
 	for i, s := range splits {
 		d := version2.Distribution{
@@ -1535,10 +1539,13 @@ func generateDefaultSplitsConfig(
 	locSnippets string,
 	enableSnippets bool,
 	retLocIndex int,
+	isVSR bool,
+	vsrName string,
+	vsrNamespace string,
 ) routingCfg {
 
 	sc, locs, returnLocs := generateSplits(route.Splits, upstreamNamer, crUpstreams, variableNamer, scIndex, cfgParams,
-		errorPages, errPageIndex, originalPath, locSnippets, enableSnippets, retLocIndex)
+		errorPages, errPageIndex, originalPath, locSnippets, enableSnippets, retLocIndex, isVSR, vsrName, vsrNamespace)
 
 	splitClientVarName := variableNamer.GetNameForSplitClientVariable(scIndex)
 
@@ -1557,7 +1564,7 @@ func generateDefaultSplitsConfig(
 
 func generateMatchesConfig(route conf_v1.Route, upstreamNamer *upstreamNamer, crUpstreams map[string]conf_v1.Upstream,
 	variableNamer *variableNamer, index int, scIndex int, cfgParams *ConfigParams, errorPages []conf_v1.ErrorPage,
-	errPageIndex int, locSnippets string, enableSnippets bool, retLocIndex int) routingCfg {
+	errPageIndex int, locSnippets string, enableSnippets bool, retLocIndex int, isVSR bool, vsrName string, vsrNamespace string) routingCfg {
 	// Generate maps
 	var maps []version2.Map
 
@@ -1627,9 +1634,6 @@ func generateMatchesConfig(route conf_v1.Route, upstreamNamer *upstreamNamer, cr
 	var locations []version2.Location
 	var returnLocations []version2.ReturnLocation
 	var splitClients []version2.SplitClient
-	isVSR := false
-	vsrName := ""
-	vsrNamespace := ""
 	scLocalIndex = 0
 
 	for i, m := range route.Matches {
@@ -1648,6 +1652,9 @@ func generateMatchesConfig(route conf_v1.Route, upstreamNamer *upstreamNamer, cr
 				locSnippets,
 				enableSnippets,
 				newRetLocIndex,
+				isVSR,
+				vsrName,
+				vsrNamespace,
 			)
 			scLocalIndex++
 			splitClients = append(splitClients, sc)
@@ -1684,6 +1691,9 @@ func generateMatchesConfig(route conf_v1.Route, upstreamNamer *upstreamNamer, cr
 			locSnippets,
 			enableSnippets,
 			newRetLocIndex,
+			isVSR,
+			vsrName,
+			vsrNamespace,
 		)
 		splitClients = append(splitClients, sc)
 		locations = append(locations, locs...)
