@@ -536,6 +536,8 @@ spec:
                 json-profiles:
                   items:
                     properties:
+                      attackSignaturesCheck:
+                        type: boolean
                       defenseAttributes:
                         properties:
                           maximumArrayLength:
